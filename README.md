@@ -71,8 +71,16 @@ det blir aldrig ett halvt släpp.
 Versionen måste vara rent numerisk (`1.4.0`, inte `1.4.0-beta.1`) eftersom
 macOS bygger `CFBundleShortVersionString` av den.
 
-Appen signeras inte, så första gången någon öppnar `.dmg`:n på en annan dator
-behöver de högerklicka → Öppna för att komma runt Gatekeeper.
+Appen signeras inte, så macOS sätter den i karantän när `.dmg`:n laddas ner.
+Första gången, per dator:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Jobbrev.app
+```
+
+Eller utan terminal: försök öppna appen, och klicka sedan **Öppna ändå** under
+Systeminställningar → Integritet och säkerhet. En app du byggt lokalt är aldrig
+karantänsatt — flaggan kommer från nedladdningen.
 
 ## Så fungerar det
 
