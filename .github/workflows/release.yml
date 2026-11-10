@@ -1,0 +1,70 @@
+# Bygger Jobbrev och publicerar releasen när en version taggas.
+#
+# Triggas av taggen som `npm run release` pushar. Bygget sker på en macOS-runner
+# i stället för lokalt, så .dmg:n blir byggd från exakt det som ligger i repot.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Behövs för att kunna skapa releasen och ladda upp .dmg:n.
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Universalbinär, så samma .dmg funkar på både Apple Silicon och Intel.
+      - name: Lägg till build-targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cacha cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - run: npm ci
+
+      # Taggen är det användaren ser, versionen i appen är det Finder visar.
+      # Går de isär är releasen fel märkt, så hellre stoppa här.
+      - name: Kontrollera att taggen matchar versionen
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          app=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          echo "tagg=$tag package.json=$pkg tauri.conf.json=$app Cargo.toml=$crate"
+          if [ "$tag" != "$pkg" ] || [ "$tag" != "$app" ] || [ "$tag" != "$crate" ]; then
+            echo "::error::Taggen $GITHUB_REF_NAME matchar inte versionen i appen."
+            exit 1
+          fi
+
+      # Kör tsc och vite build via beforeBuildCommand, och paketerar .app + .dmg.
+      - name: Bygg appen
+        run: npm run tauri build -- --target universal-apple-darwin
+
+      - name: Publicera releasen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Jobbrev ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --verify-tag \
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg

@@ -1,3 +1,5 @@
+import type { MsgKey } from "./lib/i18n";
+
 /** Strukturerade fakta ur jobbannonsen (steg 1 i AI-pipelinen). */
 export interface JobAd {
   company: string;
@@ -63,28 +65,21 @@ export type LetterLanguage = "svenska" | "engelska";
 
 export interface LetterVariant {
   id: string;
-  label: string;
+  /** Rubriken översätts vid visning, så varianten håller bara nyckeln. */
+  labelKey: MsgKey;
   text: string;
   streaming: boolean;
   error?: string;
 }
 
+/** Modellernas etiketter bor i i18n, under nyckeln `model.<id>`. */
 export const MODELS = [
-  {
-    id: "gemini-flash-latest",
-    label: "Flash (latest) — balanserad, standardval",
-  },
-  {
-    id: "gemini-flash-lite-latest",
-    label: "Flash Lite (latest) — snabbast",
-  },
-  {
-    id: "gemini-3.8-flash",
-    label: "Gemini 3.8 Flash — nyaste, ofta överbelastad",
-  },
+  "gemini-flash-latest",
+  "gemini-flash-lite-latest",
+  "gemini-3.8-flash",
 ] as const;
 
-export type ModelId = (typeof MODELS)[number]["id"];
+export type ModelId = (typeof MODELS)[number];
 
 /**
  * Ordningen appen faller tillbaka i när en modell svarar 503 eller 429.
@@ -96,8 +91,12 @@ export const MODEL_FALLBACK: readonly ModelId[] = [
   "gemini-3.8-flash",
 ];
 
+/** Språket i gränssnittet — skilt från brevets språk (`LetterLanguage`). */
+export type UiLanguage = "sv" | "en";
+
 export interface Settings {
   model: ModelId;
+  uiLanguage: UiLanguage;
   senderName: string;
   senderEmail: string;
   senderPhone: string;
@@ -109,6 +108,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   model: "gemini-flash-latest",
+  uiLanguage: "sv",
   senderName: "",
   senderEmail: "",
   senderPhone: "",

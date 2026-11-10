@@ -21,6 +21,7 @@ import {
   type OnFallback,
 } from "./lib/gemini";
 import { LETTER_ANGLES, LETTER_SYSTEM, letterPrompt, refinePrompt } from "./lib/prompts";
+import { setUiLanguage, t } from "./lib/i18n";
 import { keychain } from "./lib/keychain";
 import { loadCv, loadSettings, saveCv, saveSettings } from "./lib/storage";
 import { readCvFile } from "./lib/cvImport";
@@ -106,7 +107,8 @@ function envApiKey(): string | null {
 
 /** Visas som en notis när en överbelastad modell tvingar fram ett byte. */
 function fallbackNotice(set: SetState): OnFallback {
-  return (model) => set({ notice: { kind: "info", text: `Byter till ${model}…` } });
+  return (model) =>
+    set({ notice: { kind: "info", text: t("notice.switchingModel", { model }) } });
 }
 
 function freshController(): AbortController {
@@ -145,6 +147,7 @@ export const useApp = create<AppState>((set, get) => ({
       fromEnv ? Promise.resolve(null) : keychain.get().catch(() => null),
     ]);
     const apiKey = fromEnv ?? fromKeychain;
+    setUiLanguage(settings.uiLanguage);
     set({
       ready: true,
       settings,
@@ -175,6 +178,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   async updateSettings(patch) {
     const settings = { ...get().settings, ...patch };
+    setUiLanguage(settings.uiLanguage);
     set({ settings });
     await saveSettings(settings);
   },
@@ -188,9 +192,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   async analyzeAd() {
     const { adText, apiKey, settings, cv } = get();
-    if (!apiKey) return set({ notice: { kind: "error", text: "Lägg in din API-nyckel först." } });
+    if (!apiKey) return set({ notice: { kind: "error", text: t("err.needKey") } });
     if (adText.trim().length < 40)
-      return set({ notice: { kind: "error", text: "Klistra in hela annonsen först." } });
+      return set({ notice: { kind: "error", text: t("err.pasteAd") } });
 
     set({ busy: { ...get().busy, ad: true }, notice: null });
     try {
@@ -212,7 +216,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   async importCv(path) {
     const { apiKey, settings } = get();
-    if (!apiKey) return set({ notice: { kind: "error", text: "Lägg in din API-nyckel först." } });
+    if (!apiKey) return set({ notice: { kind: "error", text: t("err.needKey") } });
 
     set({ busy: { ...get().busy, cv: true }, notice: null });
     try {
@@ -235,7 +239,7 @@ export const useApp = create<AppState>((set, get) => ({
       };
       await saveCv(stored);
       set({ cv: stored, match: null });
-      set({ notice: { kind: "info", text: `CV inläst från ${source.fileName}.` } });
+      set({ notice: { kind: "info", text: t("notice.cvLoaded", { file: source.fileName }) } });
       if (get().ad) await get().runMatch();
     } catch (err) {
       set({ notice: { kind: "error", text: friendlyError(err) } });
@@ -286,6 +290,7 @@ export const useApp = create<AppState>((set, get) => ({
         ad,
         cv.profile,
         cv.rawText,
+        settings.uiLanguage,
         freshController().signal,
         fallbackNotice(set),
       );
@@ -303,9 +308,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   async generateLetters() {
     const { apiKey, settings, ad, cv, match, tone, length, language } = get();
-    if (!apiKey) return set({ notice: { kind: "error", text: "Lägg in din API-nyckel först." } });
-    if (!ad) return set({ notice: { kind: "error", text: "Analysera annonsen först." } });
-    if (!cv) return set({ notice: { kind: "error", text: "Läs in ditt CV först." } });
+    if (!apiKey) return set({ notice: { kind: "error", text: t("err.needKey") } });
+    if (!ad) return set({ notice: { kind: "error", text: t("err.analyzeAdFirst") } });
+    if (!cv) return set({ notice: { kind: "error", text: t("err.loadCvFirst") } });
 
     const signal = freshController().signal;
     set({
@@ -314,7 +319,7 @@ export const useApp = create<AppState>((set, get) => ({
       busy: { ...get().busy, letter: true },
       variants: LETTER_ANGLES.map((angle, i) => ({
         id: `v${i}`,
-        label: angle.label,
+        labelKey: angle.labelKey,
         text: "",
         streaming: true,
       })),

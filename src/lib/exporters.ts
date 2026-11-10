@@ -2,6 +2,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import type { JobAd, Settings } from "../types";
+import { t } from "./i18n";
 
 export const copyLetter = (text: string) => writeText(text);
 
@@ -12,14 +13,14 @@ function slug(value: string): string {
       .replace(/[åä]/g, "a")
       .replace(/ö/g, "o")
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "brev"
+      .replace(/^-|-$/g, "") || t("export.fileNameFallback")
   );
 }
 
 export function suggestFileName(ad: JobAd | null, extension = "md"): string {
   const date = new Date().toISOString().slice(0, 10);
   const parts = [ad?.company, ad?.role].filter((v): v is string => Boolean(v)).map(slug);
-  return `${["personligt-brev", ...parts].join("-")}-${date}.${extension}`;
+  return `${[t("export.fileNamePrefix"), ...parts].join("-")}-${date}.${extension}`;
 }
 
 /** Returnerar sökvägen som sparades, eller null om dialogen avbröts. */
@@ -28,16 +29,16 @@ export async function saveLetterAsMarkdown(
   ad: JobAd | null,
 ): Promise<string | null> {
   const path = await save({
-    title: "Spara brevet",
+    title: t("export.saveTitle"),
     defaultPath: suggestFileName(ad),
     filters: [{ name: "Markdown", extensions: ["md"] }],
   });
   if (!path) return null;
 
   const header = [
-    ad?.company && `**Företag:** ${ad.company}`,
-    ad?.role && `**Tjänst:** ${ad.role}`,
-    ad?.deadline && `**Sista ansökningsdag:** ${ad.deadline}`,
+    ad?.company && `**${t("export.company")}:** ${ad.company}`,
+    ad?.role && `**${t("export.role")}:** ${ad.role}`,
+    ad?.deadline && `**${t("export.deadline")}:** ${ad.deadline}`,
   ]
     .filter(Boolean)
     .join("  \n");
@@ -118,9 +119,9 @@ export async function saveLetterAsWord(
   settings: Settings,
 ): Promise<string | null> {
   const path = await save({
-    title: "Spara brevet som Word",
+    title: t("export.saveWordTitle"),
     defaultPath: suggestFileName(ad, "docx"),
-    filters: [{ name: "Word-dokument", extensions: ["docx"] }],
+    filters: [{ name: t("export.wordFilter"), extensions: ["docx"] }],
   });
   if (!path) return null;
 

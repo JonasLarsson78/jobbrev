@@ -169,20 +169,20 @@ export function Segmented<T extends string>({
 }: {
   value: T;
   onChange: (value: T) => void;
-  options: readonly T[];
+  options: readonly { id: T; label: string }[];
 }) {
   return (
     <div className="inline-flex rounded-lg border border-line bg-panel2 p-0.5">
       {options.map((option) => (
         <button
-          key={option}
+          key={option.id}
           type="button"
-          onClick={() => onChange(option)}
-          className={`rounded-md px-2.5 py-1 text-[12px] font-medium capitalize transition ${
-            value === option ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
+          onClick={() => onChange(option.id)}
+          className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition ${
+            value === option.id ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
           }`}
         >
-          {option}
+          {option.label}
         </button>
       ))}
     </div>

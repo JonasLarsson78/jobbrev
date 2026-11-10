@@ -1,5 +1,6 @@
 import { readFile } from "@tauri-apps/plugin-fs";
 import { open } from "@tauri-apps/plugin-dialog";
+import { t } from "./i18n";
 
 export const CV_EXTENSIONS = ["pdf", "docx", "txt", "md", "markdown"];
 
@@ -14,7 +15,7 @@ export async function pickCvFile(): Promise<string | null> {
   const selected = await open({
     multiple: false,
     directory: false,
-    title: "Välj ditt CV",
+    title: t("cv.pickTitle"),
     filters: [{ name: "CV", extensions: CV_EXTENSIONS }],
   });
   return typeof selected === "string" ? selected : null;
@@ -43,7 +44,7 @@ export async function readCvFile(path: string): Promise<CvSource> {
   const fileName = baseName(path);
 
   if (!CV_EXTENSIONS.includes(ext)) {
-    throw new Error(`Filtypen .${ext} stöds inte. Använd PDF, Word (.docx) eller text.`);
+    throw new Error(t("cv.unsupported", { ext }));
   }
 
   const bytes = await readFile(path);
@@ -61,11 +62,11 @@ export async function readCvFile(path: string): Promise<CvSource> {
     const { default: mammoth } = await import("mammoth");
     const result = await mammoth.extractRawText({ arrayBuffer: buffer });
     const text = result.value.trim();
-    if (!text) throw new Error("Word-filen verkar tom.");
+    if (!text) throw new Error(t("cv.wordEmpty"));
     return { fileName, rawText: text };
   }
 
   const text = new TextDecoder("utf-8").decode(bytes).trim();
-  if (!text) throw new Error("Filen verkar tom.");
+  if (!text) throw new Error(t("cv.fileEmpty"));
   return { fileName, rawText: text };
 }

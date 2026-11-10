@@ -40,6 +40,40 @@ npm run tauri build
 # → src-tauri/target/release/bundle/macos/Jobbrev.app
 ```
 
+## Släppa en ny version
+
+```bash
+npm run release -- patch    # 0.1.0 → 0.1.1
+npm run release -- minor    # 0.1.0 → 0.2.0
+npm run release -- major    # 0.1.0 → 1.0.0
+npm run release -- 1.4.0    # exakt version
+```
+
+Versionen bor på fem ställen (`package.json`, `package-lock.json`,
+`tauri.conf.json`, `Cargo.toml`, `Cargo.lock`) och måste vara densamma överallt
+— annars får `.dmg`:n ett annat nummer än taggen. Skriptet skriver alla fem,
+typkontrollerar, committar, taggar `vX.Y.Z` och pushar.
+
+Resten gör `.github/workflows/release.yml`: taggen triggar ett bygge på en
+macOS-runner som paketerar en universalbinär (Apple Silicon + Intel) och
+publicerar releasen med `.dmg`:n bifogad. Bygget sker alltså aldrig på din
+maskin, utan från exakt det som ligger i repot.
+
+Skriptet kräver ett rent arbetsträd och att du står på `main` — taggen ska peka
+på exakt det som byggs. Faller typkontrollen läggs versionsfilerna tillbaka, så
+det blir aldrig ett halvt släpp.
+
+| Flagga | Gör |
+|---|---|
+| `--dry-run` | visar vad som skulle hända, ändrar ingenting |
+| `--any-branch` | tillåter release från en annan gren än `main` |
+
+Versionen måste vara rent numerisk (`1.4.0`, inte `1.4.0-beta.1`) eftersom
+macOS bygger `CFBundleShortVersionString` av den.
+
+Appen signeras inte, så första gången någon öppnar `.dmg`:n på en annan dator
+behöver de högerklicka → Öppna för att komma runt Gatekeeper.
+
 ## Så fungerar det
 
 1. **Annonsen** analyseras till strukturerade fakta: krav, meriterande,
@@ -55,6 +89,15 @@ npm run tauri build
 
 Två varianter genereras: *Meriterna först* och *Motivationen först*. Samma
 fakta, olika upplägg.
+
+## Språk
+
+Appen går på svenska eller engelska. Välj under **Inställningar → Språk i appen**;
+valet sparas i `settings.json` och gäller gränssnittet, felmeddelandena, filnamnen
+vid export och matchningens kommentarer. Citaten ur CV:t lämnas alltid ordagranna.
+
+Brevets språk är en egen sak och väljs i brevpanelen — du kan alltså köra appen på
+svenska och skriva brevet på engelska.
 
 ## Var saker sparas
 

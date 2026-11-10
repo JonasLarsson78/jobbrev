@@ -6,6 +6,7 @@ import {
   saveLetterAsMarkdown,
   saveLetterAsWord,
 } from "../lib/exporters";
+import { useT } from "../lib/i18n";
 import type { Length, LetterLanguage, Tone } from "../types";
 import { Button, Empty, Panel, Segmented, Spinner } from "./ui";
 
@@ -39,6 +40,7 @@ export function LetterPanel() {
     notify,
   } = useApp();
 
+  const t = useT();
   const [refinement, setRefinement] = useState("");
   const letter = variants[activeVariant];
   const canGenerate = Boolean(ad && cv);
@@ -46,24 +48,26 @@ export function LetterPanel() {
   async function copy() {
     if (!letter?.text) return;
     await copyLetter(letter.text);
-    notify({ kind: "info", text: "Brevet är kopierat." });
+    notify({ kind: "info", text: t("letter.copied") });
   }
 
   async function saveFile() {
     if (!letter?.text) return;
     const path = await saveLetterAsMarkdown(letter.text, ad);
-    if (path) notify({ kind: "info", text: `Sparat till ${path}` });
+    if (path) notify({ kind: "info", text: t("letter.saved", { path }) });
   }
 
   async function saveWord() {
     if (!letter?.text) return;
     try {
       const path = await saveLetterAsWord(letter.text, ad, settings);
-      if (path) notify({ kind: "info", text: `Sparat till ${path}` });
+      if (path) notify({ kind: "info", text: t("letter.saved", { path }) });
     } catch (error) {
       notify({
         kind: "error",
-        text: `Kunde inte spara Word-filen: ${error instanceof Error ? error.message : error}`,
+        text: t("letter.wordFailed", {
+          error: error instanceof Error ? error.message : String(error),
+        }),
       });
     }
   }
@@ -77,36 +81,46 @@ export function LetterPanel() {
 
   return (
     <Panel
-      title="Brevet"
+      title={t("letter.title")}
       actions={
         busy.letter ? (
           <Button variant="quiet" onClick={cancel}>
-            Avbryt
+            {t("letter.cancel")}
           </Button>
         ) : (
           <Button
             variant="primary"
             onClick={generateLetters}
             disabled={!canGenerate}
-            title={canGenerate ? undefined : "Kräver både analyserad annons och inläst CV"}
+            title={canGenerate ? undefined : t("letter.needsBoth")}
           >
-            {variants.length ? "Skriv om" : "Skriv brev"}
+            {variants.length ? t("letter.rewrite") : t("letter.write")}
           </Button>
         )
       }
     >
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 pb-3.5">
-        <Segmented value={tone} onChange={setTone} options={TONES} />
-        <Segmented value={length} onChange={setLength} options={LENGTHS} />
-        <Segmented value={language} onChange={setLanguage} options={LANGUAGES} />
+        <Segmented
+          value={tone}
+          onChange={setTone}
+          options={TONES.map((id) => ({ id, label: t(`tone.${id}`) }))}
+        />
+        <Segmented
+          value={length}
+          onChange={setLength}
+          options={LENGTHS.map((id) => ({ id, label: t(`length.${id}`) }))}
+        />
+        <Segmented
+          value={language}
+          onChange={setLanguage}
+          options={LANGUAGES.map((id) => ({ id, label: t(`letterLang.${id}`) }))}
+        />
       </div>
 
       {variants.length === 0 ? (
         <div className="flex flex-1 items-center">
           <Empty>
-            {canGenerate
-              ? "Allt är på plats. Tryck Skriv brev för att få två förslag."
-              : "Analysera annonsen och läs in ditt CV, sedan skriver vi brevet."}
+            {canGenerate ? t("letter.ready") : t("letter.notReady")}
           </Empty>
         </div>
       ) : (
@@ -123,7 +137,7 @@ export function LetterPanel() {
                     : "border-transparent text-muted hover:text-ink"
                 }`}
               >
-                {variant.label}
+                {t(variant.labelKey)}
                 {variant.streaming && <Spinner />}
               </button>
             ))}
@@ -140,26 +154,26 @@ export function LetterPanel() {
             onChange={(e) => setVariantText(activeVariant, e.target.value)}
             spellCheck
             lang={language === "svenska" ? "sv" : "en"}
-            placeholder="Brevet skrivs ut här…"
+            placeholder={t("letter.placeholder")}
             className="mt-2.5 min-h-0 flex-1 resize-none rounded-lg border border-line bg-panel2 p-3.5 font-serif text-[14.5px] leading-[1.7] text-ink outline-none focus:border-accent"
           />
 
           <div className="mt-2.5 flex shrink-0 items-center justify-between gap-2">
             <span className="text-[11px] text-muted tabular-nums">
-              {wordCount(letter?.text ?? "")} ord
+              {t("letter.words", { count: wordCount(letter?.text ?? "") })}
             </span>
             <div className="flex items-center gap-1.5">
               <Button onClick={copy} disabled={!letter?.text}>
-                Kopiera
+                {t("letter.copy")}
               </Button>
               <Button onClick={saveFile} disabled={!letter?.text}>
-                Spara .md
+                {t("letter.saveMd")}
               </Button>
               <Button onClick={saveWord} disabled={!letter?.text}>
-                Word
+                {t("letter.saveWord")}
               </Button>
               <Button onClick={printLetter} disabled={!letter?.text}>
-                PDF
+                {t("letter.savePdf")}
               </Button>
             </div>
           </div>
@@ -171,7 +185,7 @@ export function LetterPanel() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.nativeEvent.isComposing) void refine();
               }}
-              placeholder="Förfina: t.ex. korta ned andra stycket"
+              placeholder={t("letter.refinePlaceholder")}
               className="w-full rounded-lg border border-line bg-panel2 px-2.5 py-1.5 text-[13px] outline-none placeholder:text-muted focus:border-accent"
             />
             <Button
@@ -179,7 +193,7 @@ export function LetterPanel() {
               busy={busy.letter}
               disabled={!refinement.trim() || !letter?.text}
             >
-              Förfina
+              {t("letter.refine")}
             </Button>
           </div>
         </div>

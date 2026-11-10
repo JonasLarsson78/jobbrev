@@ -6,6 +6,7 @@ import { LetterPanel } from "./components/LetterPanel";
 import { MePanel } from "./components/MePanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CV_EXTENSIONS } from "./lib/cvImport";
+import { useT } from "./lib/i18n";
 import { senderLines } from "./lib/exporters";
 import { Button } from "./components/ui";
 
@@ -22,6 +23,7 @@ export default function App() {
     importCv,
   } = useApp();
   const [dragging, setDragging] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     void init();
@@ -41,13 +43,13 @@ export default function App() {
           CV_EXTENSIONS.includes(p.split(".").pop()?.toLowerCase() ?? ""),
         );
         if (path) void importCv(path);
-        else notify({ kind: "error", text: "Släpp en PDF, .docx eller textfil." });
+        else notify({ kind: "error", text: t("app.dropWrongType") });
       }
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [importCv, notify]);
+  }, [importCv, notify, t]);
 
   useEffect(() => {
     if (!notice) return;
@@ -67,7 +69,7 @@ export default function App() {
             <span className="text-[11px] text-muted">{settings.model}</span>
           </div>
           <Button variant="quiet" onClick={() => openSettings(true)}>
-            Inställningar
+            {t("app.settings")}
           </Button>
         </header>
 
@@ -79,7 +81,7 @@ export default function App() {
           </main>
         ) : (
           <div className="flex flex-1 items-center justify-center text-[13px] text-muted">
-            Startar…
+            {t("app.starting")}
           </div>
         )}
 
@@ -95,7 +97,7 @@ export default function App() {
 
         {dragging && (
           <div className="pointer-events-none fixed inset-3 z-40 flex items-center justify-center rounded-xl border-2 border-dashed border-accent bg-black/20 text-[14px] font-medium">
-            Släpp CV:t här
+            {t("app.dropCv")}
           </div>
         )}
       </div>

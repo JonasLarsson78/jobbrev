@@ -1,5 +1,13 @@
 import type { GoogleGenAI, Part } from "@google/genai";
-import { MODEL_FALLBACK, type CvProfile, type JobAd, type MatchResult, type ModelId } from "../types";
+import {
+  MODEL_FALLBACK,
+  type CvProfile,
+  type JobAd,
+  type MatchResult,
+  type ModelId,
+  type UiLanguage,
+} from "../types";
+import { t } from "./i18n";
 import { cvProfileSchema, jobAdSchema, matchSchema } from "./schemas";
 import {
   AD_SYSTEM,
@@ -24,7 +32,7 @@ export async function createClient(apiKey: string): Promise<GoogleGenAI> {
 
 /** Gemini svarar ibland med ```json-staket runt JSON-objektet. */
 function parseJson<T>(raw: string | undefined, what: string): T {
-  if (!raw) throw new Error(`Tomt svar från Gemini vid ${what}.`);
+  if (!raw) throw new Error(t("gemini.emptyAt", { what }));
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -33,24 +41,19 @@ function parseJson<T>(raw: string | undefined, what: string): T {
   try {
     return JSON.parse(cleaned) as T;
   } catch {
-    throw new Error(`Kunde inte tolka svaret från Gemini vid ${what}.`);
+    throw new Error(t("gemini.parseFailedAt", { what }));
   }
 }
 
 /** Gör felen läsbara i gränssnittet i stället för att visa råa HTTP-fel. */
 export function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/API key not valid|API_KEY_INVALID|401/.test(msg))
-    return "API-nyckeln godtas inte. Kontrollera VITE_GEMINI_API_KEY i .env.";
-  if (/UNAVAILABLE|503|high demand|overloaded/i.test(msg))
-    return "Alla modeller är överbelastade hos Google just nu. Försök igen om en stund.";
-  if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg))
-    return "Kvoten är slut för nyckeln. Vänta en stund eller kontrollera din plan hos Google.";
-  if (/404|NOT_FOUND/.test(msg))
-    return "Modellen finns inte för den här nyckeln. Välj en annan modell i inställningarna.";
-  if (/Failed to fetch|NetworkError|ENOTFOUND/i.test(msg))
-    return "Ingen kontakt med Google. Kontrollera nätverket.";
-  if (/abort/i.test(msg)) return "Avbrutet.";
+  if (/API key not valid|API_KEY_INVALID|401/.test(msg)) return t("err.invalidKey");
+  if (/UNAVAILABLE|503|high demand|overloaded/i.test(msg)) return t("err.overloaded");
+  if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) return t("err.quota");
+  if (/404|NOT_FOUND/.test(msg)) return t("err.modelMissing");
+  if (/Failed to fetch|NetworkError|ENOTFOUND/i.test(msg)) return t("err.network");
+  if (/abort/i.test(msg)) return t("err.aborted");
   return msg;
 }
 
@@ -89,7 +92,7 @@ async function withFallback<T>(
       onFallback?.(model, friendlyError(lastError));
     }
     for (let tryIndex = 0; tryIndex <= RETRY_DELAYS_MS.length; tryIndex++) {
-      if (signal?.aborted) throw lastError ?? new Error("Avbrutet.");
+      if (signal?.aborted) throw lastError ?? new Error(t("err.aborted"));
       if (tryIndex > 0) {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[tryIndex - 1]));
       }
@@ -152,7 +155,7 @@ export function analyzeAd(
     system: AD_SYSTEM,
     prompt: adPrompt(adText),
     schema: jobAdSchema,
-    what: "analys av annonsen",
+    what: t("what.ad"),
     signal,
     onFallback,
   });
@@ -178,7 +181,7 @@ export function parseCv(
     parts: source.pdf
       ? [{ inlineData: { mimeType: source.pdf.mimeType, data: source.pdf.data } }]
       : [],
-    what: "läsning av CV:t",
+    what: t("what.cv"),
     signal,
     onFallback,
   });
@@ -190,6 +193,7 @@ export function matchCv(
   ad: JobAd,
   cv: CvProfile,
   cvRawText: string,
+  uiLanguage: UiLanguage,
   signal?: AbortSignal,
   onFallback?: OnFallback,
 ): Promise<MatchResult> {
@@ -197,9 +201,9 @@ export function matchCv(
     client,
     model,
     system: MATCH_SYSTEM,
-    prompt: matchPrompt(ad, cv, cvRawText),
+    prompt: matchPrompt(ad, cv, cvRawText, uiLanguage),
     schema: matchSchema,
-    what: "matchningen mot CV:t",
+    what: t("what.match"),
     signal,
     onFallback,
   });
@@ -245,7 +249,7 @@ export function streamText(
         if (text.trim()) return text.trim();
         throw err;
       }
-      if (!text.trim()) throw new Error("Tomt svar från Gemini.");
+      if (!text.trim()) throw new Error(t("gemini.empty"));
       return text.trim();
     },
     signal,

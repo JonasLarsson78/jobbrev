@@ -6,7 +6,9 @@ import type {
   MatchResult,
   Settings,
   Tone,
+  UiLanguage,
 } from "../types";
+import type { MsgKey } from "./i18n";
 
 export const AD_SYSTEM = `Du är en noggrann analytiker som läser jobbannonser.
 Extrahera bara det som faktiskt står i annonsen. Hitta inte på krav, deadline eller
@@ -55,11 +57,28 @@ export function cvPrompt(rawText?: string): string {
     : `Strukturera CV:t i den bifogade filen.`;
 }
 
-export function matchPrompt(ad: JobAd, cv: CvProfile, cvRawText: string): string {
+/**
+ * Fritexten i matchningen (strengths, missing, comment) visas i gränssnittet och
+ * följer därför appspråket. Citaten i evidence måste alltid vara ordagranna ur
+ * CV:t och översätts aldrig.
+ */
+const MATCH_OUTPUT_LANGUAGE: Record<UiLanguage, string> = {
+  sv: "Skriv strengths, missing och comment på svenska.",
+  en: "Write strengths, missing and comment in English, even when the CV and the ad are in Swedish. Leave every evidence quote verbatim in its original language.",
+};
+
+export function matchPrompt(
+  ad: JobAd,
+  cv: CvProfile,
+  cvRawText: string,
+  uiLanguage: UiLanguage,
+): string {
   return `Jämför CV:t mot annonsens krav.
 
 Gå igenom varje post i requirements, och lägg till de poster i niceToHave som är
 tydligt viktiga för rollen. Basera citaten på CV-råtexten.
+
+Språk: ${MATCH_OUTPUT_LANGUAGE[uiLanguage]}
 
 --- ANNONS (strukturerad) ---
 ${JSON.stringify({ role: ad.role, company: ad.company, requirements: ad.requirements, niceToHave: ad.niceToHave, responsibilities: ad.responsibilities, keywords: ad.keywords }, null, 2)}
@@ -93,19 +112,19 @@ const LANGUAGE_GUIDE: Record<LetterLanguage, string> = {
 };
 
 export interface LetterAngle {
-  label: string;
+  labelKey: MsgKey;
   instruction: string;
 }
 
 /** De två varianterna skiljer sig i upplägg, inte i fakta. */
 export const LETTER_ANGLES: LetterAngle[] = [
   {
-    label: "Meriterna först",
+    labelKey: "letter.angleMerits",
     instruction:
       "Gå rakt på sak: öppna med vilken tjänst det gäller och den starkaste konkreta meriten för just den här rollen. Bygg brevet kring två-tre bevis ur CV:t som matchar kraven.",
   },
   {
-    label: "Motivationen först",
+    labelKey: "letter.angleMotivation",
     instruction:
       "Öppna med en konkret och trovärdig krok om varför just den här rollen eller verksamheten är intressant, grundad i något jag faktiskt gjort. Väv därefter in meriterna som stöd. Ingen allmän artighet om 'ert spännande företag'.",
   },

@@ -1,4 +1,5 @@
 import { useApp } from "../store";
+import { useT } from "../lib/i18n";
 import { Button, Chip, Empty, Panel } from "./ui";
 
 function Section({ title, items }: { title: string; items: string[] }) {
@@ -20,19 +21,20 @@ function Section({ title, items }: { title: string; items: string[] }) {
 
 export function AdPanel() {
   const { adText, setAdText, ad, analyzeAd, busy, patchAd } = useApp();
+  const t = useT();
 
   return (
     <Panel
-      title="Annonsen"
+      title={t("ad.title")}
       actions={
         <>
           {ad && (
             <Button variant="quiet" onClick={() => useApp.setState({ ad: null, match: null })}>
-              Rensa
+              {t("ad.clear")}
             </Button>
           )}
           <Button variant="primary" onClick={analyzeAd} busy={busy.ad} disabled={!adText.trim()}>
-            Analysera
+            {t("ad.analyze")}
           </Button>
         </>
       }
@@ -40,14 +42,14 @@ export function AdPanel() {
       <textarea
         value={adText}
         onChange={(e) => setAdText(e.target.value)}
-        placeholder="Klistra in hela jobbannonsen här…"
+        placeholder={t("ad.placeholder")}
         spellCheck={false}
         className="min-h-40 w-full shrink-0 resize-y rounded-lg border border-line bg-panel2 p-2.5 text-[13px] leading-relaxed text-ink outline-none placeholder:text-muted focus:border-accent"
       />
 
       {!ad ? (
         <div className="flex flex-1 items-center">
-          <Empty>Klistra in annonsen och tryck Analysera för att plocka ut kraven.</Empty>
+          <Empty>{t("ad.empty")}</Empty>
         </div>
       ) : (
         <div className="mt-3.5 flex flex-col gap-3.5">
@@ -66,13 +68,17 @@ export function AdPanel() {
 
           <div className="flex flex-wrap gap-1.5">
             {ad.location && <Chip>{ad.location}</Chip>}
-            {ad.deadline && <Chip tone="warn">Sista dag: {ad.deadline}</Chip>}
+            {ad.deadline && (
+              <Chip tone="warn">{t("ad.deadline", { date: ad.deadline })}</Chip>
+            )}
             {ad.contactPerson && <Chip>{ad.contactPerson}</Chip>}
             {ad.detectedLanguage && <Chip>{ad.detectedLanguage}</Chip>}
           </div>
 
           {ad.tone && (
-            <p className="selectable text-[12px] text-muted">Annonsens ton: {ad.tone}</p>
+            <p className="selectable text-[12px] text-muted">
+              {t("ad.adTone", { tone: ad.tone })}
+            </p>
           )}
 
           {ad.keywords.length > 0 && (
@@ -83,9 +89,9 @@ export function AdPanel() {
             </div>
           )}
 
-          <Section title="Krav" items={ad.requirements} />
-          <Section title="Meriterande" items={ad.niceToHave} />
-          <Section title="Rollen innebär" items={ad.responsibilities} />
+          <Section title={t("ad.requirements")} items={ad.requirements} />
+          <Section title={t("ad.niceToHave")} items={ad.niceToHave} />
+          <Section title={t("ad.responsibilities")} items={ad.responsibilities} />
         </div>
       )}
     </Panel>
