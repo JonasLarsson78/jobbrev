@@ -1,7 +1,8 @@
 # Bygger Jobbrev och publicerar releasen när en version taggas.
 #
-# Triggas av taggen som `npm run release` pushar. Bygget sker på en macOS-runner
-# i stället för lokalt, så .dmg:n blir byggd från exakt det som ligger i repot.
+# Triggas av taggen som `npm run release` pushar. Bygget sker på runners i
+# stället för lokalt, så installationsfilerna byggs från exakt det som ligger
+# i repot — och Windows-bygget behöver ingen Windows-maskin.
 name: Release
 
 on:
@@ -9,41 +10,53 @@ on:
     tags:
       - "v*"
 
-# Behövs för att kunna skapa releasen och ladda upp .dmg:n.
+# Behövs för att kunna skapa releasen och ladda upp filerna.
 permissions:
   contents: write
 
 jobs:
-  macos:
-    runs-on: macos-latest
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # En trasig plattform ska inte dölja om den andra också är trasig.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS (Apple Silicon)
+            bundles: app,dmg
+            artifact: src-tauri/target/release/bundle/dmg/*.dmg
+          - os: windows-latest
+            label: Windows (x64)
+            bundles: nsis
+            artifact: src-tauri/target/release/bundle/nsis/*-setup.exe
 
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
-      # Universalbinär, så samma .dmg funkar på både Apple Silicon och Intel.
-      - name: Lägg till build-targets
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
       - name: Cacha cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          key: cargo-${{ matrix.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.os }}-
 
       - run: npm ci
 
-      # Taggen är det användaren ser, versionen i appen är det Finder visar.
-      # Går de isär är releasen fel märkt, så hellre stoppa här.
+      # Taggen är det användaren ser, versionen i appen är det operativsystemet
+      # visar. Går de isär är releasen fel märkt, så hellre stoppa här.
       - name: Kontrollera att taggen matchar versionen
+        shell: bash
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg=$(node -p "require('./package.json').version")
@@ -55,16 +68,42 @@ jobs:
             exit 1
           fi
 
-      # Kör tsc och vite build via beforeBuildCommand, och paketerar .app + .dmg.
+      # Kör tsc och vite build via beforeBuildCommand, och paketerar sedan
+      # plattformens installationsfil.
+      #
+      # Medvetet utan VITE_GEMINI_API_KEY: Vite hade bakat in den i bundlen i
+      # klartext, och repot är publikt. Appen frågar efter nyckeln vid start i
+      # stället och sparar den i datorns nyckelvalv.
       - name: Bygg appen
-        run: npm run tauri build -- --target universal-apple-darwin
+        run: npm run tauri build -- --bundles ${{ matrix.bundles }}
 
-      - name: Publicera releasen
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  # Släpps i ett eget jobb, så att båda plattformarna hamnar i samma release
+  # utan att två parallella jobb slåss om att skapa den.
+  release:
+    name: Publicera
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: filer
+          merge-multiple: true
+
+      - name: Skapa releasen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          ls -lh filer
           gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "Jobbrev ${GITHUB_REF_NAME#v}" \
             --generate-notes \
             --verify-tag \
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            filer/*

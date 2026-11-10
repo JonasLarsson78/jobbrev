@@ -21,6 +21,7 @@ export default function App() {
     variants,
     activeVariant,
     importCv,
+    version,
   } = useApp();
   const [dragging, setDragging] = useState(false);
   const t = useT();
@@ -66,7 +67,9 @@ export default function App() {
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-line px-4">
           <div className="flex items-baseline gap-2">
             <h1 className="text-[14px] font-semibold tracking-tight">Jobbrev</h1>
-            <span className="text-[11px] text-muted">{settings.model}</span>
+            <span className="text-[11px] text-muted">
+              {version ? `v${version} · ${settings.model}` : settings.model}
+            </span>
           </div>
           <Button variant="quiet" onClick={() => openSettings(true)}>
             {t("app.settings")}

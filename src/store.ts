@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { create } from "zustand";
 import type { GoogleGenAI } from "@google/genai";
 import {
@@ -39,6 +40,8 @@ export type KeySource = "env" | "keychain" | null;
 
 interface AppState {
   ready: boolean;
+  /** Appens version, hämtad från tauri.conf.json vid start. */
+  version: string;
   apiKey: string | null;
   keySource: KeySource;
   settings: Settings;
@@ -119,6 +122,7 @@ function freshController(): AbortController {
 
 export const useApp = create<AppState>((set, get) => ({
   ready: false,
+  version: "",
   apiKey: null,
   keySource: null,
   settings: DEFAULT_SETTINGS,
@@ -141,15 +145,18 @@ export const useApp = create<AppState>((set, get) => ({
 
   async init() {
     const fromEnv = envApiKey();
-    const [settings, cv, fromKeychain] = await Promise.all([
+    const [settings, cv, fromKeychain, version] = await Promise.all([
       loadSettings(),
       loadCv(),
       fromEnv ? Promise.resolve(null) : keychain.get().catch(() => null),
+      // Ett uteblivet versionsnummer ska inte hindra appen från att starta.
+      getVersion().catch(() => ""),
     ]);
     const apiKey = fromEnv ?? fromKeychain;
     setUiLanguage(settings.uiLanguage);
     set({
       ready: true,
+      version,
       settings,
       cv,
       apiKey,

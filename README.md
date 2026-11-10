@@ -1,6 +1,7 @@
 # Jobbrev
 
-macOS-app som skriver personliga brev grundade i ditt faktiska CV.
+Skrivbordsapp för macOS och Windows som skriver personliga brev grundade i
+ditt faktiska CV.
 
 Klistra in jobbannonsen, läs in ditt CV en gång, och appen plockar ut kraven,
 matchar dem mot CV:t och skriver två brevförslag som du kan redigera, förfina
@@ -25,7 +26,13 @@ Nyckeln hämtas i [Google AI Studio](https://aistudio.google.com/apikey).
 Appen letar efter nyckeln i den här ordningen:
 
 1. `VITE_GEMINI_API_KEY` i `.env`
-2. macOS Nyckelhanterare (tjänsten `jobbrev`), som du fyller i via Inställningar
+2. Systemets nyckelvalv (tjänsten `jobbrev`), som du fyller i via Inställningar
+   — macOS Nyckelhanterare respektive Windows Credential Manager
+
+Releasebyggen i GitHub Actions får aldrig nyckeln — repot är publikt, och Vite
+hade bakat in den i klartext i en fil som vem som helst kan ladda ner och läsa.
+Den nedladdade appen frågar i stället efter nyckeln vid start och sparar den i
+datorns nyckelvalv, en gång per dator.
 
 Att veta om `.env`: Vite bakar in värdet i frontend-bundlen vid bygget, så
 nyckeln följer med in i `Jobbrev.app`. Det är rimligt för en app som bara du
@@ -54,10 +61,17 @@ Versionen bor på fem ställen (`package.json`, `package-lock.json`,
 — annars får `.dmg`:n ett annat nummer än taggen. Skriptet skriver alla fem,
 typkontrollerar, committar, taggar `vX.Y.Z` och pushar.
 
-Resten gör `.github/workflows/release.yml`: taggen triggar ett bygge på en
-macOS-runner som paketerar en universalbinär (Apple Silicon + Intel) och
-publicerar releasen med `.dmg`:n bifogad. Bygget sker alltså aldrig på din
-maskin, utan från exakt det som ligger i repot.
+Resten gör `.github/workflows/release.yml`: taggen triggar ett bygge per
+plattform och lägger båda i samma release.
+
+| Plattform | Fil | Runner |
+|---|---|---|
+| macOS (Apple Silicon) | `Jobbrev_X.Y.Z_aarch64.dmg` | `macos-latest` |
+| Windows (x64) | `Jobbrev_X.Y.Z_x64-setup.exe` | `windows-latest` |
+
+Bygget sker alltså aldrig på din maskin, utan från exakt det som ligger i repot
+— och Windows-versionen behöver ingen Windows-maskin. Faller den ena
+plattformen publiceras ingen release alls, hellre det än ett halvt släpp.
 
 Skriptet kräver ett rent arbetsträd och att du står på `main` — taggen ska peka
 på exakt det som byggs. Faller typkontrollen läggs versionsfilerna tillbaka, så
@@ -71,8 +85,8 @@ det blir aldrig ett halvt släpp.
 Versionen måste vara rent numerisk (`1.4.0`, inte `1.4.0-beta.1`) eftersom
 macOS bygger `CFBundleShortVersionString` av den.
 
-Appen signeras inte, så macOS sätter den i karantän när `.dmg`:n laddas ner.
-Första gången, per dator:
+Ingen av filerna är signerade, så båda operativsystemen bromsar dem första
+gången. På macOS:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Jobbrev.app
@@ -81,6 +95,9 @@ xattr -dr com.apple.quarantine /Applications/Jobbrev.app
 Eller utan terminal: försök öppna appen, och klicka sedan **Öppna ändå** under
 Systeminställningar → Integritet och säkerhet. En app du byggt lokalt är aldrig
 karantänsatt — flaggan kommer från nedladdningen.
+
+På Windows visar SmartScreen *"Windows protected your PC"*. Klicka **More
+info → Run anyway**.
 
 ## Så fungerar det
 

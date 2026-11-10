@@ -19,6 +19,10 @@ export function SettingsDialog() {
 
   const t = useT();
   const [keyDraft, setKeyDraft] = useState("");
+
+  // En nedladdad app har ingen .env att hänvisa till, så texterna om nyckeln
+  // skiljer sig mellan dev och ett paketerat bygge.
+  const packaged = !import.meta.env.DEV;
   const [status, setStatus] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
 
@@ -80,7 +84,9 @@ export function SettingsDialog() {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[16px] font-semibold">{t("settings.title")}</h2>
-            <p className="mt-0.5 text-[12px] text-muted">{t("settings.intro")}</p>
+            <p className="mt-0.5 text-[12px] text-muted">
+              {t(packaged ? "settings.introPackaged" : "settings.intro")}
+            </p>
           </div>
           {apiKey && (
             <Button variant="quiet" onClick={() => openSettings(false)}>
@@ -105,7 +111,11 @@ export function SettingsDialog() {
             <>
               <Field
                 label={t("settings.apiKeyLabel")}
-                hint={apiKey ? t("settings.keyHintExists") : t("settings.keyHintNew")}
+                hint={
+                  apiKey
+                    ? t("settings.keyHintExists")
+                    : t(packaged ? "settings.keyHintPackaged" : "settings.keyHintNew")
+                }
               >
                 <TextInput
                   type="password"
