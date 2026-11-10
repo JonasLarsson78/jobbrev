@@ -7,6 +7,8 @@ Klistra in jobbannonsen, läs in ditt CV en gång, och appen plockar ut kraven,
 matchar dem mot CV:t och skriver två brevförslag som du kan redigera, förfina
 och exportera.
 
+![Jobbrev med annonsen till vänster, brevet i mitten och CV:t till höger](docs/skarmbild.png)
+
 ## Stack
 
 Tauri 2 · React 19 · TypeScript · Vite · Tailwind 4 · Google Gemini
