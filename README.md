@@ -58,6 +58,17 @@ npm run release -- major    # 0.1.0 → 1.0.0
 npm run release -- 1.4.0    # exakt version
 ```
 
+Med `-m` följer en rad om vad som hänt med in i releasen. Den hamnar överst,
+ovanför de noter GitHub genererar från commitarna. Flera `-m` blir flera
+stycken:
+
+```bash
+npm run release -- patch -m "Rensa tömmer nu annonsrutan."
+```
+
+Texten sparas i taggens annotering, så den går att läsa i efterhand med
+`git tag -n99 v0.1.3`.
+
 Versionen bor på fem ställen (`package.json`, `package-lock.json`,
 `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`) och måste vara densamma överallt
 — annars får `.dmg`:n ett annat nummer än taggen. Skriptet skriver alla fem,

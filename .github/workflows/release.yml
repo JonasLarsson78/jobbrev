@@ -91,6 +91,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Bara för taggens annotering — det är där `npm run release -- -m "..."`
+      # lägger raden som ska stå överst i releasen.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v8
         with:
           path: filer
@@ -101,9 +107,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -lh filer
+
+          # Första raden i annoteringen är rubriken ("Jobbrev 0.1.3"); kroppen
+          # är det -m gav. Är den tom står bara de automatiska noterna kvar.
+          notes=$(git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME")
+          printf 'Egna noter:\n%s\n' "${notes:-(inga)}"
+
+          # gh fogar ihop det här med de genererade noterna med en enda
+          # radbrytning, så blankraden på slutet gör dem till egna stycken.
+          # Är taggen utan kropp blir filen tom och bara noterna står kvar.
+          : > noter.md
+          if [ -n "$notes" ]; then printf '%s\n\n' "$notes" > noter.md; fi
+
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Jobbrev ${GITHUB_REF_NAME#v}" \
+            --notes-file noter.md \
             --generate-notes \
             --verify-tag \
             filer/*

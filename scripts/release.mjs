@@ -15,6 +15,7 @@
  *   npm run release -- major          0.1.0 → 1.0.0
  *   npm run release -- 1.4.0          exakt version
  *
+ *   -m <text>     rad om vad som hänt; hamnar överst i releasen (kan upprepas)
  *   --dry-run     visa vad som skulle hända, ändra ingenting
  *   --any-branch  tillåt release från en annan gren än main
  */
@@ -75,20 +76,48 @@ function read(file) {
 // ── Argument ────────────────────────────────────────────────────────────────
 
 const argv = process.argv.slice(2);
-const flags = new Set(argv.filter((arg) => arg.startsWith("-")));
-const target = argv.find((arg) => !arg.startsWith("-"));
 
-const dryRun = flags.has("--dry-run");
-const anyBranch = flags.has("--any-branch");
+let target;
+let dryRun = false;
+let anyBranch = false;
+let askedForHelp = false;
 
-const KNOWN_FLAGS = ["--dry-run", "--any-branch", "--help", "-h"];
-for (const flag of flags) {
-  if (!KNOWN_FLAGS.includes(flag)) {
-    fail(`Okänd flagga: ${flag}`, "Kör med --help för att se vad som finns.");
+/** Varje -m blir ett stycke, precis som git commit -m -m. */
+const messages = [];
+
+for (let i = 0; i < argv.length; i++) {
+  const arg = argv[i];
+
+  if (arg === "-m" || arg === "--message") {
+    const value = argv[++i];
+    if (value === undefined) {
+      fail("-m saknar ett meddelande.", 'Skriv t.ex. -m "Rensa tömmer nu annonsrutan."');
+    }
+    messages.push(value);
+  } else if (arg.startsWith("-m=")) {
+    messages.push(arg.slice("-m=".length));
+  } else if (arg.startsWith("--message=")) {
+    messages.push(arg.slice("--message=".length));
+  } else if (arg === "--dry-run") {
+    dryRun = true;
+  } else if (arg === "--any-branch") {
+    anyBranch = true;
+  } else if (arg === "--help" || arg === "-h") {
+    askedForHelp = true;
+  } else if (arg.startsWith("-")) {
+    fail(`Okänd flagga: ${arg}`, "Kör med --help för att se vad som finns.");
+  } else if (target === undefined) {
+    target = arg;
+  } else {
+    fail(
+      `Oväntat argument: ${arg}`,
+      'Flera ord i ett meddelande behöver citattecken: -m "två ord".',
+    );
   }
 }
 
-const askedForHelp = flags.has("--help") || flags.has("-h");
+// Tomma -m "" är lika bra som inget meddelande alls.
+const notes = messages.map((message) => message.trim()).filter(Boolean).join("\n\n");
 
 if (askedForHelp || !target) {
   console.log(
@@ -96,10 +125,12 @@ if (askedForHelp || !target) {
       "",
       "  npm run release -- <patch|minor|major|x.y.z> [flaggor]",
       "",
+      "  -m <text>     rad om vad som hänt; hamnar överst i releasen (kan upprepas)",
       "  --dry-run     visa vad som skulle hända, ändra ingenting",
       "  --any-branch  tillåt release från en annan gren än main",
       "",
       "  Bygget och publiceringen sker i GitHub Actions när taggen pushas.",
+      "  Utan -m står bara de automatiska noterna i releasen.",
       "",
     ].join("\n"),
   );
@@ -135,6 +166,12 @@ function nextVersion(current, how) {
 const version = nextVersion(currentVersion, target);
 const tag = `v${version}`;
 const productName = JSON.parse(read(TAURI_CONF)).productName;
+
+/**
+ * Taggens första rad är rubriken; resten är det -m gav. Workflowen läser
+ * kroppen och lägger den överst i releasen, ovanför de automatiska noterna.
+ */
+const tagMessage = [`${productName} ${version}`, notes].filter(Boolean).join("\n\n");
 
 // ── Förkontroller ───────────────────────────────────────────────────────────
 
@@ -186,6 +223,14 @@ if (tryCapture("git", ["ls-remote", "--tags", "origin", tag])) {
 }
 
 console.log(`  ${currentVersion} → ${version} (gren ${branch})`);
+console.log(
+  notes
+    ? notes
+        .split("\n")
+        .map((line) => `  | ${line}`)
+        .join("\n")
+    : '  (inget meddelande — lägg till -m "..." om releasen behöver en rad)',
+);
 
 if (dryRun) {
   console.log(
@@ -195,7 +240,7 @@ if (dryRun) {
       ...VERSION_FILES.map((file) => `  skriv ${version} i ${file}`),
       "  npm run typecheck",
       `  git commit -m "chore: release ${tag}"`,
-      `  git tag -a ${tag}`,
+      `  git tag -a ${tag} -m "${tagMessage.split("\n")[0]}${notes ? " …" : ""}"`,
       `  git push origin ${branch} && git push origin ${tag}`,
       "  → GitHub Actions bygger .dmg:n och publicerar releasen",
       "",
@@ -258,7 +303,7 @@ try {
   } else {
     step(`Versionen var redan skriven — taggar HEAD som ${tag}`);
   }
-  run("git", ["tag", "-a", tag, "-m", `${productName} ${version}`]);
+  run("git", ["tag", "-a", tag, "-m", tagMessage]);
 } catch (error) {
   restoreVersions();
   fail(`Kunde inte committa eller tagga: ${error.message}`);

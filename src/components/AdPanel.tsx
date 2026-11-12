@@ -29,7 +29,7 @@ export function AdPanel() {
       actions={
         <>
           {ad && (
-            <Button variant="quiet" onClick={() => useApp.setState({ ad: null, match: null })}>
+            <Button variant="quiet" onClick={() => useApp.setState({ adText: "", ad: null, match: null })}>
               {t("ad.clear")}
             </Button>
           )}
