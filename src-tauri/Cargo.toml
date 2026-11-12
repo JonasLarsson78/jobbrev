@@ -1,6 +1,6 @@
 [package]
 name = "jobbrev"
-version = "0.1.2"
+version = "0.1.3"
 description = "Skriv personliga brev med hjälp av ditt CV och jobbannonsen"
 authors = ["Jonas Larsson"]
 edition = "2024"
